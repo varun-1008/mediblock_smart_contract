@@ -78,7 +78,7 @@ contract MediBlock {
 
         _;
     }
-
+    
     function patientRegistration(string memory _name) public isUnregistered {
         role[msg.sender] = Role.Patient;
         patient[msg.sender].name = _name;
@@ -115,7 +115,7 @@ contract MediBlock {
     //     newRecord.accessList[_doctor] = accessTime;
     // }
 
-    function giveWriteAccess(address writer, uint _seconds) public isPatient(msg.sender) isDoctorOrPathologist(writer) {
+    function createNewLink(address writer, uint _seconds) public isPatient(msg.sender) isDoctorOrPathologist(writer) {
         uint linkLength = patient[msg.sender].linkLength;
 
         uint accessTime = block.timestamp;
@@ -123,6 +123,12 @@ contract MediBlock {
 
         patient[msg.sender].writeAccess[linkLength][writer] = accessTime;
         patient[msg.sender].linkLength++;
+    }
+
+    function giveWriteAccess(address writer, uint linkIndex, uint _seconds) public isPatient(msg.sender) isDoctorOrPathologist(writer){
+        uint accessTime = block.timestamp;
+        accessTime += _seconds;
+        patient[msg.sender].writeAccess[linkIndex][writer] = accessTime;
     }
 
     function revokeWriteAccess(address writer, uint linkIndex) public isPatient(msg.sender) isDoctorOrPathologist(writer) {
