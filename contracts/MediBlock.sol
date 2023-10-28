@@ -11,6 +11,7 @@ error NotAPathologist(address);
 error NotADoctorOrPathologist(address);
 error NoWriteAccess(address patient, uint linkIndex, address writer);
 error NoReadAccess(address patient, uint linkIndex, uint recordIndex, address reader);
+error IndexOutOfBound(uint linkIndex);
 
 contract MediBlock {
 
@@ -78,44 +79,24 @@ contract MediBlock {
 
         _;
     }
-    
+
+    modifier checkIndexOutOfBound (address paddr, uint linkIndex){
+        if(patient[paddr].linkLength <= linkIndex)
+            revert IndexOutOfBound(linkIndex);
+
+        _;
+    }
+
     function patientRegistration(string memory _name) public isUnregistered {
         role[msg.sender] = Role.Patient;
         patient[msg.sender].name = _name;
     }
- 
-    // function getPatientRecordArray(address _patient, uint linkIndex) internal view returns (Record[] storage) {
-    //     return patient[_patient].records[linkIndex];
-    // }
-
-    // function setPatientRecordArray(address _patient, uint linkIndex, address _doctor, string memory _data) public {
-    //     Record storage newRecord = patient[_patient].records[linkIndex].push();
-
-    //     newRecord.doctor = _doctor;
-    //     newRecord.data = _data;
-    // }
-
-    // function getAccessList(address _patient, uint linkIndex, address _doctor) public view returns (uint) {
-    //     return patient[_patient].records[linkIndex][0].accessList[_doctor];
-    // }
-
-    // function setAccessList(address _patient, uint linkIndex, address _doctor, uint time) public {
-    //     patient[_patient].records[linkIndex][0].accessList[_doctor] = time;
-    // } 
-
-    // function giveInitialAccess(address _doctor, uint _seconds) public isPatient(msg.sender) isDoctor(_doctor) {
-    //     uint linkIndex = patient[msg.sender].linkLength;
-    //     Record storage newRecord = patient[msg.sender].records[linkIndex].push();
-    //     newRecord.doctor = address(0);
-    //     newRecord.data = "Intial record";
-    //     patient[msg.sender].linkLength++;
-
-    //     uint accessTime = block.timestamp;
-    //     accessTime += _seconds;
-    //     newRecord.accessList[_doctor] = accessTime;
-    // }
-
-    function createNewLink(address writer, uint _seconds) public isPatient(msg.sender) isDoctorOrPathologist(writer) {
+    
+    function getLinkLength(address _paddr) public view isPatient(_paddr) returns(uint){
+        return patient[_paddr].linkLength;
+    }
+    // New Link can only be created by a patient
+    function createNewLink(address writer, uint _seconds) public isPatient(msg.sender) isDoctor(writer) {
         uint linkLength = patient[msg.sender].linkLength;
 
         uint accessTime = block.timestamp;
@@ -125,17 +106,19 @@ contract MediBlock {
         patient[msg.sender].linkLength++;
     }
 
-    function giveWriteAccess(address writer, uint linkIndex, uint _seconds) public isPatient(msg.sender) isDoctorOrPathologist(writer){
+    function giveWriteAccess(address writer, uint linkIndex, uint _seconds) public isPatient(msg.sender) checkIndexOutOfBound(msg.sender,linkIndex) isDoctorOrPathologist(writer){
         uint accessTime = block.timestamp;
         accessTime += _seconds;
         patient[msg.sender].writeAccess[linkIndex][writer] = accessTime;
     }
 
-    function revokeWriteAccess(address writer, uint linkIndex) public isPatient(msg.sender) isDoctorOrPathologist(writer) {
+    function revokeWriteAccess(address writer, uint linkIndex) public isPatient(msg.sender) checkIndexOutOfBound(msg.sender,linkIndex) isDoctorOrPathologist(writer) {
        patient[msg.sender].writeAccess[linkIndex][writer] = 0;
     }
     
-    function giveReadAccess(address reader, uint linkIndex, uint recordIndex, uint _seconds) public isPatient(msg.sender) isDoctorOrPathologist(reader) {
+    function giveReadAccess(address reader, uint linkIndex, uint recordIndex, uint _seconds) public isPatient(msg.sender) checkIndexOutOfBound(msg.sender,linkIndex) isDoctorOrPathologist(reader) {
+
+        require(patient[msg.sender].records[linkIndex].length > recordIndex, "Record Index out of bound");
         uint accessTime = block.timestamp;
         accessTime += _seconds;
 
@@ -143,8 +126,9 @@ contract MediBlock {
         record.readAccess[reader] = accessTime;
     }
 
-    function revokeReadAccess(address reader, uint linkIndex, uint recordIndex) public isPatient(msg.sender) isDoctorOrPathologist(reader) {
-       Record storage record =  patient[msg.sender].records[linkIndex][recordIndex];
+    function revokeReadAccess(address reader, uint linkIndex, uint recordIndex) public isPatient(msg.sender) checkIndexOutOfBound(msg.sender,linkIndex) isDoctorOrPathologist(reader) {
+        require(patient[msg.sender].records[linkIndex].length > recordIndex, "Record Index out of bound");
+        Record storage record =  patient[msg.sender].records[linkIndex][recordIndex];
         record.readAccess[reader] = 0;
     }
 
@@ -153,13 +137,6 @@ contract MediBlock {
         role[msg.sender] = Role.Doctor;
         doctor[msg.sender].name = _name;
     }
-
-    // function hasAccess(address _patient, uint linkIndex) public isDoctor(msg.sender) isPatient(_patient) view {
-    //     uint currentTime = block.timestamp;
-    //     uint accessTime = patient[_patient].accessList[linkIndex][msg.sender];
-    //     if(accessTime < currentTime)
-    //         revert NoAccess(_patient, linkIndex, msg.sender);
-    // }
 
     function hasWriteAccess(address _patient, uint linkIndex) public isDoctorOrPathologist(msg.sender) isPatient(_patient) view returns (bool) {
         uint currentTime = block.timestamp;
@@ -184,6 +161,21 @@ contract MediBlock {
 
         Record storage newRecord = patient[_patient].records[linkIndex][recordIndex];
         return (newRecord.creator, newRecord.data);
+    }
+
+    // Used to add new records in existing links
+    function addNewRecord(address _patient, uint linkIndex,string memory _data) public isDoctorOrPathologist(msg.sender) checkIndexOutOfBound(_patient,linkIndex) isPatient(_patient) returns (bool){
+        if(hasWriteAccess(_patient, linkIndex)){
+            uint newRecordIndex = patient[_patient].records[linkIndex].length;
+            uint time = block.timestamp;
+            uint accessTime = time + 1000000;
+            patient[_patient].records[linkIndex].push();
+            patient[_patient].records[linkIndex][newRecordIndex].data = _data;
+            patient[_patient].records[linkIndex][newRecordIndex].creator = msg.sender;
+            patient[_patient].records[linkIndex][newRecordIndex].readAccess[msg.sender] = accessTime;
+            return true;
+        }
+        return false;
     }
 
     function pathologistRegistration(string memory _name) public isUnregistered {

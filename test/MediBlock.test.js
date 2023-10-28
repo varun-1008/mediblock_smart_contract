@@ -37,7 +37,7 @@ describe("MediBlock", function () {
       it("Neither a patient, nor a doctor", async function () {
         const {contract, p1, d1} = await loadFixture(mediBlockFixture);
 
-        await expect(contract.giveAccess(d1.address, 0)).to.be.revertedWithCustomError(contract, "NotAPatient");
+        await expect(contract.createNewLink(d1.address, 0)).to.be.revertedWithCustomError(contract, "NotAPatient");
       });
 
       it("Not a patient but a doctor", async function () {
@@ -47,15 +47,15 @@ describe("MediBlock", function () {
         await contract.doctorRegistration(d1.address);
 
         contract = contract.connect(p1);
-        await expect(contract.giveAccess(d1.address, 0)).to.be.revertedWithCustomError(contract, "NotAPatient");
+        await expect(contract.createNewLink(d1.address, 0)).to.be.revertedWithCustomError(contract, "NotAPatient");
       });
 
-      it("A patient but not a doctor", async function() {
+      it("A patient but not a doctor/pathologist", async function() {
         let {contract, p1, d1} = await loadFixture(mediBlockFixture);
 
         await contract.patientRegistration(p1.address);
 
-        await expect(contract.giveAccess(d1.address, 0)).to.be.revertedWithCustomError(contract, "NotADoctor");
+        await expect(contract.createNewLink(d1.address, 0)).to.be.revertedWithCustomError(contract, "NotADoctor");
       });
 
       // it("A patient and a doctor", async function() {
@@ -85,9 +85,10 @@ describe("MediBlock", function () {
         await contract.doctorRegistration(d2.address);
         contract = contract.connect(p1);
 
-        await contract.giveAccess(d1.address, 1000);
-        await contract.giveAccess(d2.address, 1000);
-        await expect(1).to.be.equal(1);
+        await contract.createNewLink(d1.address, 1000);
+        await contract.createNewLink(d2.address, 1000);
+        let len = await contract.getLinkLength(p1); 
+        expect(len).to.be.equal(2);
       });
 
       it("check return value", async function () {
