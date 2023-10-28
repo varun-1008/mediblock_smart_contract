@@ -3,10 +3,10 @@ require("dotenv").config();
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
-  solidity: "0.8.19",
-  networks: {
-    localhost: {
-      chainId: 31337,
+    solidity: "0.8.20",
+    networks: {
+        localhost: {
+            chainId: 31337,
+        },
     },
-  },
 };
