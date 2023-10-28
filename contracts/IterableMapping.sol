@@ -9,14 +9,15 @@ library IterableMappingPatient {
 
     struct Record {
         address creator;
+        string title;
+        string date;
         string data;
-        Access[] readAccess;
     } 
 
     struct Patient {
         string info;
         uint linkLength;
-        mapping(uint => Access[]) writeAccess;
+        mapping(uint => Access[]) access;
         mapping(uint => Record[]) records;
         Record[] emergencyRecords;
     }
