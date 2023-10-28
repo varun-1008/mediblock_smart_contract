@@ -28,17 +28,16 @@ library IterableMappingPatient {
         mapping(address => bool) inserted;
     }
 
-    function get(
-        Map storage map,
-        address key
-    ) public view returns (Patient storage) {
+    function find(Map storage map, address key) public view returns(bool){
+        if(map.inserted[key])   return true;
+        return false;
+    }
+
+    function get(Map storage map, address key) public view returns (Patient storage) {
         return map.values[key];
     }
 
-    function getKeyAtIndex(
-        Map storage map,
-        uint index
-    ) public view returns (address) {
+    function getKeyAtIndex(Map storage map, uint index) public view returns (address) {
         return map.keys[index];
     }
 
@@ -72,17 +71,16 @@ library IterableMappingDoctor {
         mapping(address => bool) inserted;
     }
 
-    function get(
-        Map storage map,
-        address key
-    ) public view returns (Doctor storage) {
+    function find(Map storage map, address key) public view returns(bool){
+        if(map.inserted[key])   return true;
+        return false;
+    }
+
+    function get(Map storage map, address key) public view returns (Doctor storage) {
         return map.values[key];
     }
 
-    function getKeyAtIndex(
-        Map storage map,
-        uint index
-    ) public view returns (address) {
+    function getKeyAtIndex(Map storage map, uint index) public view returns (address) {
         return map.keys[index];
     }
 
