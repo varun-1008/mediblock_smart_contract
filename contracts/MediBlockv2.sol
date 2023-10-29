@@ -143,6 +143,88 @@ contract MediBlockv2 {
     return (recordTitles, recordDates, linkIndices);
   }
   /*
+  Description : Add new records to existing link
+  can be called by doctors
+  arguments:  patient address, linkIndex, record data
+  */
+  function addNewRecord(address _patient,uint linkIndex,string memory _title,string memory _date,string memory _data) public isPatient(_patient) isDoctor(msg.sender){
+    IterableMappingPatient.Patient storage patient = patients.get(_patient);
+    uint recordIndex = patient.records[linkIndex].length;
+    patient.records[linkIndex].push();
+    patient.records[linkIndex][recordIndex].creator = msg.sender;
+    patient.records[linkIndex][recordIndex].title = _title;
+    patient.records[linkIndex][recordIndex].date = _date;
+    patient.records[linkIndex][recordIndex].data = _data; 
+  }
+
+  /*
+  Description : Creating new link
+  can be called by doctors
+  arguments:  patient address
+  */
+  function addNewLink(address _patient) public isPatient(_patient) isDoctor(msg.sender){
+    IterableMappingPatient.Patient storage patient = patients.get(_patient);
+    uint linkIndex = patient.linkLength;
+    patient.linkLength++;
+    giveAccess(_patient, linkIndex, msg.sender, 10000);
+  }
+
+  /*
+  Description : To give access
+  called internally or by patient
+  arguments:  patient address, linkIndex
+  */  
+  function giveAccess(address _patient,uint linkIndex,address _addr,uint _seconds) public isPatient(_patient){
+    IterableMappingPatient.Patient storage patient = patients.get(_patient);
+    uint accessIndex = patient.access[linkIndex].length;
+    patient.access[linkIndex].push();
+    patient.access[linkIndex][accessIndex].addr = _addr;
+    uint accessTime = block.timestamp;
+    accessTime += _seconds;
+    patient.access[linkIndex][accessIndex].time = accessTime;
+    
+  }
+
+  /*
+  Description : Revoke access
+  called patient
+  arguments:  patient address, linkIndex
+  */
+  function revokeAccess(address _patient,uint linkIndex, address _addr) public isPatient(_patient){
+    IterableMappingPatient.Patient storage patient = patients.get(_patient);
+    uint accessListLen = patient.access[linkIndex].length;
+    for(uint i = 0; i < accessListLen; i++){
+      if(patient.access[linkIndex][i].addr == _addr){
+        patient.access[linkIndex][i] = patient.access[linkIndex][accessListLen-1];
+        delete patient.access[linkIndex][accessListLen-1];
+        break;
+      }
+    }
+  }
+
+  /*
+  Description : Update accesslist
+  called system internally
+  arguments:  patient address, linkIndex
+  */
+  function updateAcessList(address _patient) public isPatient(_patient){
+    IterableMappingPatient.Patient storage patient = patients.get(_patient);
+    uint linkLength = patient.linkLength;
+    for(uint i = 0; i < linkLength; i++){
+      uint accessListLen = patient.access[linkLength].length;
+      for(uint j = 0; j < accessListLen; j++){
+        if(patient.access[linkLength][j].time < block.timestamp){
+          patient.access[linkLength][j] = patient.access[linkLength][accessListLen-1];
+          delete patient.access[linkLength][accessListLen-1];
+          j--;
+          accessListLen--;
+        }
+      }
+    }
+  }
+
+
+  /*
   Description : Get patient Info
   can be called by anyone
   arguments:  patient address
@@ -188,12 +270,12 @@ contract MediBlockv2 {
   can be called by doctors
   arguments:  null
   */
-  function getPatientList() public view isDoctor(msg.sender) returns(string[] memory){
+  function getPatientList() public view isDoctor(msg.sender) returns(address[] memory){
     IterableMappingDoctor.Doctor storage doctor = doctors.get(msg.sender);
     uint totalPatients = doctor.appointments.length;
-    string[] memory patientList = new string[](totalPatients);
+    address[] memory patientList = new address[](totalPatients);
     for(uint i = 0; i < totalPatients; i++){
-      patientList[i] = getPatientInfo(doctor.appointments[i]);
+      patientList[i] = doctor.appointments[i];
     }
     return patientList;
   }
