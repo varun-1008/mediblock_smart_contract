@@ -65,7 +65,6 @@ contract MediBlockv2 {
     uint totalRecords = linkLength;
     for(uint i = 0; i < linkLength; i++)
       totalRecords += patient.records[i].length;
-
     string[] memory recordTitles = new string[](totalRecords);
     string[] memory recordDates = new string[](totalRecords);
     uint[] memory linkIndices = new uint[](linkLength);
