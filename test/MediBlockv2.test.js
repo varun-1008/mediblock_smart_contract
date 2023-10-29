@@ -83,6 +83,54 @@ describe("MediBlockv2", function() {
         await expect(contract.getPatientInfo(p1.address)).to.be.revertedWithCustomError(contract, "NotAPatient");
       })
     })
+    describe("Granting/Revoking access by patient",function(){
+      it("Giving access to doctors for a particular link",async function(){
+        let {contract, p1, d1, d2} = await loadFixture(mediblockv2fixture);
+        await contract.patientRegistration("p1");
+        contract = contract.connect(d1);
+        await contract.doctorRegistration("d1");
+        contract = contract.connect(d2);
+        await contract.doctorRegistration("d2");
+        contract = contract.connect(p1);
+        await contract.bookAppointment(d1.address);
+        contract = contract.connect(d1);
+        let patientList = await contract.getPatientList();
+        await contract.addNewLink(patientList[0]);
+        await contract.addNewLink(patientList[0]);
+        contract = contract.connect(d1);
+        await contract.addNewRecord(patientList[0],0,"Skin Disease","29-10-2023","Peanut allergy");
+        await contract.addNewRecord(patientList[0],1,"Pulmonary Disease","29-10-2023","Difficulty in breathing");
+        contract = contract.connect(p1);
+        await contract.giveAccess(p1.address,1,d2.address,1000);
+        contract = contract.connect(d2);
+        let {0: dtitleList, 1: ddateList, 2: dindicesList} = await contract.getAllRecordsWithAccess(p1.address);
+        expect(dindicesList.length).to.be.equal(1);
+      })
+      it("Revoking access from doctors for a particular link",async function(){
+        let {contract, p1, d1, d2} = await loadFixture(mediblockv2fixture);
+        await contract.patientRegistration("p1");
+        contract = contract.connect(d1);
+        await contract.doctorRegistration("d1");
+        contract = contract.connect(d2);
+        await contract.doctorRegistration("d2");
+        contract = contract.connect(p1);
+        await contract.bookAppointment(d1.address);
+        contract = contract.connect(d1);
+        let patientList = await contract.getPatientList();
+        await contract.addNewLink(patientList[0]);
+        await contract.addNewLink(patientList[0]);
+        contract = contract.connect(d1);
+        await contract.addNewRecord(patientList[0],0,"Skin Disease","29-10-2023","Peanut allergy");
+        await contract.addNewRecord(patientList[0],1,"Pulmonary Disease","29-10-2023","Difficulty in breathing");
+        contract = contract.connect(p1);
+        await contract.giveAccess(p1.address,1,d2.address,1000);
+        await contract.giveAccess(p1.address,0,d2.address,1000);
+        await contract.revokeAccess(p1.address,1,d2.address);
+        contract = contract.connect(d2);
+        let {0: dtitleList, 1: ddateList, 2: dindicesList} = await contract.getAllRecordsWithAccess(p1.address);
+        expect(dindicesList.length).to.be.equal(1);
+      })
+    })
   })
 
 
@@ -100,9 +148,6 @@ describe("MediBlockv2", function() {
         await contract.addNewLink(patientList[0]);
         contract = contract.connect(p1);
         let {0: titleList, 1: dateList, 2:indicesList} = await contract.getAllRecords();
-        console.log(titleList);
-        console.log(dateList);
-        console.log(indicesList);
         expect(indicesList.length).to.be.equal(1);
       })
 
@@ -116,20 +161,18 @@ describe("MediBlockv2", function() {
         contract = contract.connect(d1);
         let patientList = await contract.getPatientList();
         await contract.addNewLink(patientList[0]);
+        await contract.addNewLink(patientList[0]);
         contract = contract.connect(p1);
-        let {0: ptitleList, 1: pdateList, 2:pindicesList} = await contract.getAllRecords();
+        let {0: ptitleList, 1: pdateList, 2: pindicesList} = await contract.getAllRecords();
         contract = contract.connect(d1);
         await contract.addNewRecord(patientList[0],pindicesList[0],"Skin Disease","29-10-2023","Peanut allergy");
-        let {0: dtitleList, 1: ddateList, 2: dindicesList} = await contract.getAllRecordsWithAccess(patientList[0]);
-        console.log(dtitleList);
-        console.log(ddateList);
-        console.log(dindicesList);
+        await contract.addNewRecord(patientList[0],pindicesList[1],"Pulmonary Disease","29-10-2023","Difficulty in breathing");
+        let {0: titleList, 1: dateList, 2: indicesList} = await contract.getAllRecordsWithAccess(p1.address);
+        contract = contract.connect(p1);
+        let{0: titles, 1: dates, 2: indices} = await contract.getAllRecords();
+        expect(indices.length).to.be.equal(2);
       })
-
-
     })
-
-    
   })
 
 })

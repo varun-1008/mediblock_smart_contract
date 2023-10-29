@@ -75,8 +75,6 @@ contract MediBlockv2 {
       for(uint j = 0; j < recordLength; j++){
         recordTitles[counter] = patient.records[i][j].title;
         recordDates[counter] = patient.records[i][j].date;
-        console.log(patient.records[i][j].title);
-        console.log(patient.records[i][j].date);
         counter++;
       }
       recordTitles[counter] = "-";
@@ -90,7 +88,8 @@ contract MediBlockv2 {
   can be called by doctors
   arguments:  patient address
   */
-  function getAllRecordsWithAccess(address _patient) public isDoctor(msg.sender) view returns(string[] memory,string[] memory,uint[] memory){
+  function getAllRecordsWithAccess(address _patient) public view isDoctor(msg.sender) returns(string[] memory,string[] memory,uint[] memory){
+    // updateAcessList(_patient);
     IterableMappingPatient.Patient storage patient = patients.get(_patient);
     uint linkLength = patient.linkLength;
     uint totalRecords = 0;
@@ -111,6 +110,8 @@ contract MediBlockv2 {
         indicesCount++;
       }
     }
+    // console.log("Total records: ");
+    // console.log(totalRecords);
     string[] memory recordTitles = new string[](totalRecords);
     string[] memory recordDates = new string[](totalRecords);
     uint[] memory linkIndices = new uint[](indicesCount);
@@ -130,6 +131,8 @@ contract MediBlockv2 {
         for(uint j = 0; j < recordLength; j++){
           recordTitles[counter] = patient.records[i][j].title;
           recordDates[counter] = patient.records[i][j].date;
+          // console.log("Inside doctor: ");
+          // console.log(patient.records[i][j].title);
           counter++;
         }
         recordTitles[counter] = "-";
@@ -149,11 +152,13 @@ contract MediBlockv2 {
   function addNewRecord(address _patient,uint linkIndex,string memory _title,string memory _date,string memory _data) public isPatient(_patient) isDoctor(msg.sender){
     IterableMappingPatient.Patient storage patient = patients.get(_patient);
     uint recordIndex = patient.records[linkIndex].length;
+    // console.log(recordIndex);
     patient.records[linkIndex].push();
     patient.records[linkIndex][recordIndex].creator = msg.sender;
     patient.records[linkIndex][recordIndex].title = _title;
     patient.records[linkIndex][recordIndex].date = _date;
     patient.records[linkIndex][recordIndex].data = _data; 
+    // console.log(patient.records[linkIndex].length);
   }
 
   /*
@@ -181,6 +186,8 @@ contract MediBlockv2 {
     uint accessTime = block.timestamp;
     accessTime += _seconds;
     patient.access[linkIndex][accessIndex].time = accessTime;
+    // console.log("Access List Length: ");
+    // console.log(patient.access[linkIndex].length);
     
   }
 
@@ -206,15 +213,23 @@ contract MediBlockv2 {
   called system internally
   arguments:  patient address, linkIndex
   */
-  function updateAcessList(address _patient) public isPatient(_patient){
+  function updateAcessList(address _patient) internal isPatient(_patient){
     IterableMappingPatient.Patient storage patient = patients.get(_patient);
     uint linkLength = patient.linkLength;
+    // console.log("Link Lenght: ");
+    // console.log(linkLength);
     for(uint i = 0; i < linkLength; i++){
-      uint accessListLen = patient.access[linkLength].length;
+      uint accessListLen = patient.access[i].length;
+      // console.log("Access List Length: ");
+      // console.log(accessListLen);
       for(uint j = 0; j < accessListLen; j++){
-        if(patient.access[linkLength][j].time < block.timestamp){
-          patient.access[linkLength][j] = patient.access[linkLength][accessListLen-1];
-          delete patient.access[linkLength][accessListLen-1];
+        // console.log("Time: ");
+        // console.log(patient.access[i][j].time);
+        // console.log(block.timestamp);
+        if(patient.access[i][j].time < block.timestamp){
+          // console.log("here");
+          patient.access[i][j] = patient.access[i][accessListLen-1];
+          delete patient.access[i][accessListLen-1];
           j--;
           accessListLen--;
         }
