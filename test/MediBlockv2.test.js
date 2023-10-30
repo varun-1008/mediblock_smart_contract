@@ -45,7 +45,7 @@ describe("MediBlockv2", function() {
 
   describe("Patient", function() {
     describe("Book Appointment", function() {
-      it("Getting list of all doctors registered in our system", async function () {
+      it("Getting list of all doctors who are not appointed by patient", async function () {
         let { contract, p1, d1, d2 } = await loadFixture(mediblockv2fixture);
         contract = contract.connect(d1);
         await contract.doctorRegistration("d1");
@@ -53,11 +53,12 @@ describe("MediBlockv2", function() {
         await contract.doctorRegistration("d2");
         contract = contract.connect(p1);
         await contract.patientRegistration("p1");
-        let doctorList = await contract.getAllDoctorList();
+        let doctorList = await contract.getNotAppointedDoctorList();
         expect(doctorList.length).to.be.equal(2);
         expect(doctorList[0]).to.be.equal(d1.address);
       })
-      it("Book Appointment", async function () {
+
+      it("Booking Appointment", async function () {
         let { contract, p1, d1 } = await loadFixture(mediblockv2fixture);
         await contract.patientRegistration("p1");
         contract = contract.connect(d1);
@@ -82,7 +83,39 @@ describe("MediBlockv2", function() {
         await contract.patientRegistration("p1");
         await expect(contract.bookAppointment(d1.address)).to.be.revertedWithCustomError(contract, "NotADoctor");
       })
+
+      it("Getting list of all doctors who are appointed by patient", async function () {
+        let { contract, p1, d1, d2 } = await loadFixture(mediblockv2fixture);
+        contract = contract.connect(d1);
+        await contract.doctorRegistration("d1");
+        contract = contract.connect(d2)
+        await contract.doctorRegistration("d2");
+        contract = contract.connect(p1);
+        await contract.patientRegistration("p1");
+        await contract.bookAppointment(d1.address);
+        await contract.bookAppointment(d2.address);
+        let doctorList = await contract.getAppointedDoctorList();
+        expect(doctorList.length).to.be.equal(2);
+        expect(doctorList[0]).to.be.equal(d1.address);
+      })
+
+      it("Deleting Appointment", async function () {
+        let { contract, p1, d1} = await loadFixture(mediblockv2fixture);
+        contract = contract.connect(d1);
+        await contract.doctorRegistration("d1");
+        contract = contract.connect(p1);
+        await contract.patientRegistration("p1");
+        await contract.bookAppointment(d1.address);
+        await contract.deleteAppointment(d1.address);
+        let appointedDoctorList = await contract.getAppointedDoctorList();
+        let notAppointedDoctorList = await contract.getNotAppointedDoctorList();
+        expect(appointedDoctorList.length).to.be.equal(0);
+        expect(notAppointedDoctorList.length).to.be.equal(1);
+        expect(notAppointedDoctorList[0]).to.be.equal(d1.address);
+      })
+
     })
+
     describe("Patient Info", function() {
       it("Checking patient info of registered patient", async function(){
         let {contract, p1} = await loadFixture(mediblockv2fixture);
