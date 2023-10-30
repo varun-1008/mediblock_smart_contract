@@ -20,6 +20,7 @@ library IterableMappingPatient {
         mapping(uint => Access[]) access;
         mapping(uint => Record[]) records;
         Record[] emergencyRecords;
+        address[] appointedDoctors;
     }
 
     struct Map {

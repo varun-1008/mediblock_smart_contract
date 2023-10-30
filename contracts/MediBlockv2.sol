@@ -304,8 +304,95 @@ contract MediBlockv2 {
   */
   function bookAppointment(address _doctor) public isPatient(msg.sender) isDoctor(_doctor){
     IterableMappingDoctor.Doctor storage doctor = doctors.get(_doctor);
+    IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
+    patient.appointedDoctors.push(_doctor);
     doctor.appointments.push(msg.sender);
   }
+
+  /*
+  Description : To delete appointment of doctors
+  can be called by patient
+  arguments:  doctor address
+  */
+  function deleteAppointment(address _doctor) public isPatient(msg.sender) isDoctor(_doctor){
+    IterableMappingDoctor.Doctor storage doctor = doctors.get(_doctor);
+    IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
+    uint len = doctor.appointments.length;
+    for(uint i = 0; i < len; i++){
+      if(doctor.appointments[i] == msg.sender){
+        doctor.appointments[i] = doctor.appointments[len-1];
+        doctor.appointments.pop();
+        break;
+      }
+    }
+    len = patient.appointedDoctors.length;
+    for(uint i = 0; i < len; i++){
+      if(patient.appointedDoctors[i] == _doctor){
+        patient.appointedDoctors[i] = patient.appointedDoctors[len-1];
+        patient.appointedDoctors.pop();
+        break;
+      }
+    }
+  }
+
+  /*
+  Description : Get all list of doctors who are not appointed to a patient (for Booking of appointment)
+  can be called by patients
+  arguments:  null
+  return value: string array, list of addresses of all not appointed doctors
+  */
+  function getNotAppointedDoctorList() public view isPatient(msg.sender) returns(address[] memory){
+    uint len = doctors.size();
+    IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
+    uint patientAppointmentList = patient.appointedDoctors.length;
+    uint totalDoctors = 0; 
+    for(uint i = 0; i < len; i++){
+      address addr =  doctors.getKeyAtIndex(i);
+      bool flag = true;
+      for(uint j = 0; j < patientAppointmentList; j++){
+        if(patient.appointedDoctors[j] == addr){
+          flag = false;
+          break;
+        }
+      }
+      if(flag)  totalDoctors++;
+    }
+    address[] memory addressList = new address[](totalDoctors);
+    uint counter = 0;
+    for(uint i = 0; i < len; i++){
+      address addr =  doctors.getKeyAtIndex(i);
+      bool flag = true;
+      for(uint j = 0; j < patientAppointmentList; j++){
+        if(patient.appointedDoctors[j] == addr){
+          flag = false;
+          break;
+        }
+      }
+      if(flag){
+        addressList[counter] = addr;
+        counter++;
+      }
+    }
+    return addressList;
+  }
+
+  /*
+  Description : Get list of appointed doctors
+  can be called by patients
+  arguments:  null
+  return value: string array, list of addresses of appointed doctors
+  */
+  function getAppointedDoctorList() public view isPatient(msg.sender) returns(address[] memory){
+    IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
+    uint len = patient.appointedDoctors.length;
+    address[] memory appointedDoctorList = new address[](len);
+    for(uint i = 0; i < len; i++){
+      appointedDoctorList[i] = patient.appointedDoctors[i];
+      // console.log(getDoctorInfo(appointedDoctorList[i]));
+    }
+    return appointedDoctorList;
+  }
+
   /*
   Description : To register doctors
   can be called by user
@@ -358,18 +445,6 @@ contract MediBlockv2 {
     return addressList;
   }
 
-  /*
-  Description : Get all list of doctors (for Booking of appointment)
-  can be called by patients
-  arguments:  null
-  return value: string array, list of addresses of all doctors
-  */
-  function getAllDoctorList() public view isPatient(msg.sender) returns(address[] memory){
-    uint len = doctors.size();
-    address[] memory addressList = new address[](len);
-    for(uint i = 0; i < len; i++){
-      addressList[i] = doctors.getKeyAtIndex(i);
-    }
-    return addressList;
-  }
+  
+
 }
