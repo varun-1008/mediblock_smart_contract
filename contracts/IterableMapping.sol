@@ -12,7 +12,7 @@ library IterableMappingPatient {
         string title;
         string date;
         string data;
-    } 
+    }
 
     struct Patient {
         string info;
@@ -30,16 +30,22 @@ library IterableMappingPatient {
         mapping(address => bool) inserted;
     }
 
-    function find(Map storage map, address key) public view returns(bool){
-        if(map.inserted[key])   return true;
+    function find(Map storage map, address key) public view returns (bool) {
+        if (map.inserted[key]) return true;
         return false;
     }
 
-    function get(Map storage map, address key) public view returns (Patient storage) {
+    function get(
+        Map storage map,
+        address key
+    ) public view returns (Patient storage) {
         return map.values[key];
     }
 
-    function getKeyAtIndex(Map storage map, uint index) public view returns (address) {
+    function getKeyAtIndex(
+        Map storage map,
+        uint index
+    ) public view returns (address) {
         return map.keys[index];
     }
 
@@ -60,7 +66,6 @@ library IterableMappingPatient {
 }
 
 library IterableMappingDoctor {
-
     struct Doctor {
         string info;
         address[] appointments;
@@ -73,16 +78,22 @@ library IterableMappingDoctor {
         mapping(address => bool) inserted;
     }
 
-    function find(Map storage map, address key) public view returns(bool){
-        if(map.inserted[key])   return true;
+    function find(Map storage map, address key) public view returns (bool) {
+        if (map.inserted[key]) return true;
         return false;
     }
 
-    function get(Map storage map, address key) public view returns (Doctor storage) {
+    function get(
+        Map storage map,
+        address key
+    ) public view returns (Doctor storage) {
         return map.values[key];
     }
 
-    function getKeyAtIndex(Map storage map, uint index) public view returns (address) {
+    function getKeyAtIndex(
+        Map storage map,
+        uint index
+    ) public view returns (address) {
         return map.keys[index];
     }
 

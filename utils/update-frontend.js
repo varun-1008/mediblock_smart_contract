@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-async function updateAbi(address) {
+async function updateAbi() {
   const frontEndAbiFile = path.join(
     "..",
     "mediblock_frontend",
@@ -12,8 +12,8 @@ async function updateAbi(address) {
   const jsonPath = path.join(
     "artifacts",
     "contracts",
-    "MediBlock.sol",
-    "MediBlock.json",
+    "MediBlockv2.sol",
+    "MediBlockv2.json",
   );
   const data = fs.readFileSync(jsonPath, "utf8");
   const json = JSON.parse(data);

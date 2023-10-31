@@ -6,3 +6,6 @@
   - `yarn hardhat compile`
 4. To run tests
   - `yarn hardhat test`
+
+5. To format code
+  - `yarn prettier --write --plugin=prettier-plugin-solidity 'contracts/**/*.sol'`
