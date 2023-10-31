@@ -60,30 +60,29 @@ contract MediBlockv2 {
   arguments:  null
   return value: 3 string array, list of string of title, date and link Index of emergency records
   */
-  function getAllRecords() public isPatient(msg.sender) view returns(string[] memory,string[] memory,uint[] memory){
+  function getRecords() public isPatient(msg.sender) view returns(string[] memory,string[] memory,uint[] memory,uint[] memory){
     IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
     uint linkLength = patient.linkLength;
-    uint totalRecords = linkLength;
+    uint totalRecords = 0;
     for(uint i = 0; i < linkLength; i++)
       totalRecords += patient.records[i].length;
     string[] memory recordTitles = new string[](totalRecords);
     string[] memory recordDates = new string[](totalRecords);
-    uint[] memory linkIndices = new uint[](linkLength);
+    uint[] memory linkIndices = new uint[](totalRecords);
+    uint[] memory recordIndices = new uint[](totalRecords);
     uint counter = 0;
     for(uint i = 0; i < linkLength; i++){
       uint recordLength = patient.records[i].length;
-      linkIndices[i] = i;
       for(uint j = 0; j < recordLength; j++){
         recordTitles[counter] = patient.records[i][j].title;
         recordDates[counter] = patient.records[i][j].date;
+        linkIndices[counter] = i;
+        recordIndices[counter] = j;
         counter++;
       }
-      recordTitles[counter] = "-";
-      recordDates[counter] = "-";
-      counter++;
     }
     //"p1","p2","-","p3","p4","-"
-    return (recordTitles, recordDates, linkIndices);
+    return (recordTitles, recordDates, linkIndices, recordIndices);
   }
   /*
   Description : To access records by doctors
@@ -91,12 +90,11 @@ contract MediBlockv2 {
   arguments:  patient address
   return value: 3 string array, list of string of title, date and link index of emergency records
   */
-  function getAllRecordsWithAccess(address _patient) public view isDoctor(msg.sender) returns(string[] memory,string[] memory,uint[] memory){
+  function getRecordsWithAccess(address _patient) public view isDoctor(msg.sender) returns(string[] memory,string[] memory,uint[] memory, uint[] memory){
     // updateAcessList(_patient);
     IterableMappingPatient.Patient storage patient = patients.get(_patient);
     uint linkLength = patient.linkLength;
     uint totalRecords = 0;
-    uint indicesCount = 0;
     for(uint i = 0; i < linkLength; i++){
       uint recordLength = patient.records[i].length;
       uint accessListLength = patient.access[i].length;
@@ -109,17 +107,15 @@ contract MediBlockv2 {
       }
       if(flag){
         totalRecords += recordLength;
-        totalRecords++;
-        indicesCount++;
       }
     }
     // console.log("Total records: ");
     // console.log(totalRecords);
     string[] memory recordTitles = new string[](totalRecords);
     string[] memory recordDates = new string[](totalRecords);
-    uint[] memory linkIndices = new uint[](indicesCount);
+    uint[] memory linkIndices = new uint[](totalRecords);
+    uint[] memory recordIndices = new uint[](totalRecords);
     uint counter = 0;
-    uint indexCount = 0;
     for(uint i = 0; i < linkLength; i++){
       uint recordLength = patient.records[i].length;
       uint accessListLength = patient.access[i].length;
@@ -134,25 +130,22 @@ contract MediBlockv2 {
         for(uint j = 0; j < recordLength; j++){
           recordTitles[counter] = patient.records[i][j].title;
           recordDates[counter] = patient.records[i][j].date;
+          linkIndices[counter] = i;
+          recordIndices[counter] = j;
           // console.log("Inside doctor: ");
           // console.log(patient.records[i][j].title);
           counter++;
         }
-        recordTitles[counter] = "-";
-        recordDates[counter] = "-";
-        counter++;
-        linkIndices[indexCount] = i;
-        indexCount++;
       }
     }
-    return (recordTitles, recordDates, linkIndices);
+    return (recordTitles, recordDates, linkIndices, recordIndices);
   }
   /*
   Description : Add new records to existing link
   can be called by doctors
   arguments:  patient address, linkIndex, record data
   */
-  function addNewRecord(address _patient,uint linkIndex,string memory _title,string memory _date,string memory _data) public isPatient(_patient) isDoctor(msg.sender){
+  function addRecordExistingLink(address _patient,uint linkIndex,string memory _title,string memory _date,string memory _data) public isPatient(_patient) isDoctor(msg.sender){
     IterableMappingPatient.Patient storage patient = patients.get(_patient);
     uint recordIndex = patient.records[linkIndex].length;
     // console.log(recordIndex);
@@ -169,11 +162,12 @@ contract MediBlockv2 {
   can be called by doctors
   arguments:  patient address
   */
-  function addNewLink(address _patient) public isPatient(_patient) isDoctor(msg.sender){
+  function addRecordNewLink(address _patient,string memory _title, string memory _date, string memory _data) public isPatient(_patient) isDoctor(msg.sender){
     IterableMappingPatient.Patient storage patient = patients.get(_patient);
     uint linkIndex = patient.linkLength;
     patient.linkLength++;
     giveAccess(_patient, linkIndex, msg.sender, 10000);
+    patient.records[linkIndex].push(IterableMappingPatient.Record(msg.sender,_title,_date,_data));
   }
 
   /*
@@ -257,7 +251,7 @@ contract MediBlockv2 {
   can be called by patient
   arguments:  linkIndex, recordIndex
   */
-  function markAsEmergencyRecord(uint linkIndex,uint recordIndex) public isPatient(msg.sender){
+  function addEmergencyRecord(uint linkIndex,uint recordIndex) public isPatient(msg.sender){
     IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
     uint index = patient.emergencyRecords.length;
     patient.emergencyRecords.push();
@@ -302,7 +296,7 @@ contract MediBlockv2 {
   can be called by patient
   arguments:  doctor address
   */
-  function bookAppointment(address _doctor) public isPatient(msg.sender) isDoctor(_doctor){
+  function addAppointment(address _doctor) public isPatient(msg.sender) isDoctor(_doctor){
     IterableMappingDoctor.Doctor storage doctor = doctors.get(_doctor);
     IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
     patient.appointedDoctors.push(_doctor);
@@ -314,7 +308,7 @@ contract MediBlockv2 {
   can be called by patient
   arguments:  doctor address
   */
-  function deleteAppointment(address _doctor) public isPatient(msg.sender) isDoctor(_doctor){
+  function removeAppointment(address _doctor) public isPatient(msg.sender) isDoctor(_doctor){
     IterableMappingDoctor.Doctor storage doctor = doctors.get(_doctor);
     IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
     uint len = doctor.appointments.length;
@@ -341,7 +335,7 @@ contract MediBlockv2 {
   arguments:  null
   return value: string array, list of addresses of all not appointed doctors
   */
-  function getNotAppointedDoctorList() public view isPatient(msg.sender) returns(address[] memory){
+  function getNotAppointedDoctors() public view isPatient(msg.sender) returns(address[] memory){
     uint len = doctors.size();
     IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
     uint patientAppointmentList = patient.appointedDoctors.length;
@@ -382,7 +376,7 @@ contract MediBlockv2 {
   arguments:  null
   return value: string array, list of addresses of appointed doctors
   */
-  function getAppointedDoctorList() public view isPatient(msg.sender) returns(address[] memory){
+  function getAppointedDoctors() public view isPatient(msg.sender) returns(address[] memory){
     IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
     uint len = patient.appointedDoctors.length;
     address[] memory appointedDoctorList = new address[](len);
@@ -420,7 +414,7 @@ contract MediBlockv2 {
   arguments:  null
   return value: list of addresses of appointed patients
   */
-  function getPatientList() public view isDoctor(msg.sender) returns(address[] memory){
+  function getAppointedPatients() public view isDoctor(msg.sender) returns(address[] memory){
     IterableMappingDoctor.Doctor storage doctor = doctors.get(msg.sender);
     uint totalPatients = doctor.appointments.length;
     address[] memory patientList = new address[](totalPatients);
@@ -436,7 +430,7 @@ contract MediBlockv2 {
   arguments:  null
   return value: string array, list of addresses of all patients
   */
-  function getAllPatientList() public view isDoctor(msg.sender) returns(address[] memory){
+  function getPatients() public view isDoctor(msg.sender) returns(address[] memory){
     uint len = patients.size();
     address[] memory addressList = new address[](len);
     for(uint i = 0; i < len; i++){
