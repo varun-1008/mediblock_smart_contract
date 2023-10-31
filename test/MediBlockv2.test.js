@@ -53,7 +53,7 @@ describe("MediBlockv2", function() {
         await contract.doctorRegistration("d2");
         contract = contract.connect(p1);
         await contract.patientRegistration("p1");
-        let doctorList = await contract.getNotAppointedDoctorList();
+        let doctorList = await contract.getNotAppointedDoctors();
         expect(doctorList.length).to.be.equal(2);
         expect(doctorList[0]).to.be.equal(d1.address);
       })
@@ -64,9 +64,9 @@ describe("MediBlockv2", function() {
         contract = contract.connect(d1);
         await contract.doctorRegistration("d1");
         contract = contract.connect(p1);
-        await contract.bookAppointment(d1.address);
+        await contract.addAppointment(d1.address);
         contract = contract.connect(d1);
-        let patientList = await contract.getPatientList();
+        let patientList = await contract.getAppointedPatients();
         expect(patientList.length).to.be.equal(1);
       })
 
@@ -75,13 +75,13 @@ describe("MediBlockv2", function() {
         contract = contract.connect(d1);
         await contract.doctorRegistration("d1");
         contract = contract.connect(p1);
-        await expect(contract.bookAppointment(d1.address)).to.be.revertedWithCustomError(contract, "NotAPatient");
+        await expect(contract.addAppointment(d1.address)).to.be.revertedWithCustomError(contract, "NotAPatient");
       })
       
       it("Book Appointment if doctor address is not registered", async function () {
         let { contract, p1, d1 } = await loadFixture(mediblockv2fixture);
         await contract.patientRegistration("p1");
-        await expect(contract.bookAppointment(d1.address)).to.be.revertedWithCustomError(contract, "NotADoctor");
+        await expect(contract.addAppointment(d1.address)).to.be.revertedWithCustomError(contract, "NotADoctor");
       })
 
       it("Getting list of all doctors who are appointed by patient", async function () {
@@ -92,9 +92,9 @@ describe("MediBlockv2", function() {
         await contract.doctorRegistration("d2");
         contract = contract.connect(p1);
         await contract.patientRegistration("p1");
-        await contract.bookAppointment(d1.address);
-        await contract.bookAppointment(d2.address);
-        let doctorList = await contract.getAppointedDoctorList();
+        await contract.addAppointment(d1.address);
+        await contract.addAppointment(d2.address);
+        let doctorList = await contract.getAppointedDoctors();
         expect(doctorList.length).to.be.equal(2);
         expect(doctorList[0]).to.be.equal(d1.address);
       })
@@ -105,10 +105,10 @@ describe("MediBlockv2", function() {
         await contract.doctorRegistration("d1");
         contract = contract.connect(p1);
         await contract.patientRegistration("p1");
-        await contract.bookAppointment(d1.address);
-        await contract.deleteAppointment(d1.address);
-        let appointedDoctorList = await contract.getAppointedDoctorList();
-        let notAppointedDoctorList = await contract.getNotAppointedDoctorList();
+        await contract.addAppointment(d1.address);
+        await contract.removeAppointment(d1.address);
+        let appointedDoctorList = await contract.getAppointedDoctors();
+        let notAppointedDoctorList = await contract.getNotAppointedDoctors();
         expect(appointedDoctorList.length).to.be.equal(0);
         expect(notAppointedDoctorList.length).to.be.equal(1);
         expect(notAppointedDoctorList[0]).to.be.equal(d1.address);
@@ -137,19 +137,19 @@ describe("MediBlockv2", function() {
         contract = contract.connect(d2);
         await contract.doctorRegistration("d2");
         contract = contract.connect(p1);
-        await contract.bookAppointment(d1.address);
+        await contract.addAppointment(d1.address);
         contract = contract.connect(d1);
-        let patientList = await contract.getPatientList();
-        await contract.addNewLink(patientList[0]);
-        await contract.addNewLink(patientList[0]);
+        let patientList = await contract.getAppointedPatients();
+        await contract.addRecordNewLink(patientList[0],"Skin Disease","29-10-2023","Peanut allergy");
+        await contract.addRecordNewLink(patientList[0],"Skin Disease","29-10-2023","Peanut allergy");
         contract = contract.connect(d1);
-        await contract.addNewRecord(patientList[0],0,"Skin Disease","29-10-2023","Peanut allergy");
-        await contract.addNewRecord(patientList[0],1,"Pulmonary Disease","29-10-2023","Difficulty in breathing");
+        await contract.addRecordExistingLink(patientList[0],0,"Skin Disease","29-10-2023","Peanut allergy");
+        await contract.addRecordExistingLink(patientList[0],1,"Pulmonary Disease","29-10-2023","Difficulty in breathing");
         contract = contract.connect(p1);
         await contract.giveAccess(p1.address,1,d2.address,1000);
         contract = contract.connect(d2);
-        let {0: dtitleList, 1: ddateList, 2: dindicesList} = await contract.getAllRecordsWithAccess(p1.address);
-        expect(dindicesList.length).to.be.equal(1);
+        let {0: dtitleList, 1: ddateList, 2: dindicesList} = await contract.getRecordsWithAccess(p1.address);
+        expect(dindicesList.length).to.be.equal(2);
       })
       it("Revoking access from doctors for a particular link",async function(){
         let {contract, p1, d1, d2} = await loadFixture(mediblockv2fixture);
@@ -159,21 +159,21 @@ describe("MediBlockv2", function() {
         contract = contract.connect(d2);
         await contract.doctorRegistration("d2");
         contract = contract.connect(p1);
-        await contract.bookAppointment(d1.address);
+        await contract.addAppointment(d1.address);
         contract = contract.connect(d1);
-        let patientList = await contract.getPatientList();
-        await contract.addNewLink(patientList[0]);
-        await contract.addNewLink(patientList[0]);
+        let patientList = await contract.getAppointedPatients();
+        await contract.addRecordNewLink(patientList[0],"Skin Disease","29-10-2023","Peanut allergy");
+        await contract.addRecordNewLink(patientList[0],"Skin Disease","29-10-2023","Peanut allergy");
         contract = contract.connect(d1);
-        await contract.addNewRecord(patientList[0],0,"Skin Disease","29-10-2023","Peanut allergy");
-        await contract.addNewRecord(patientList[0],1,"Pulmonary Disease","29-10-2023","Difficulty in breathing");
+        await contract.addRecordExistingLink(patientList[0],0,"Skin Disease","29-10-2023","Peanut allergy");
+        await contract.addRecordExistingLink(patientList[0],1,"Pulmonary Disease","29-10-2023","Difficulty in breathing");
         contract = contract.connect(p1);
         await contract.giveAccess(p1.address,1,d2.address,1000);
         await contract.giveAccess(p1.address,0,d2.address,1000);
         await contract.revokeAccess(p1.address,1,d2.address);
         contract = contract.connect(d2);
-        let {0: dtitleList, 1: ddateList, 2: dindicesList} = await contract.getAllRecordsWithAccess(p1.address);
-        expect(dindicesList.length).to.be.equal(1);
+        let {0: dtitleList, 1: ddateList, 2: dindicesList} = await contract.getRecordsWithAccess(p1.address);
+        expect(dindicesList.length).to.be.equal(2);
       })
     })
 
@@ -186,16 +186,16 @@ describe("MediBlockv2", function() {
         contract = contract.connect(d2);
         await contract.doctorRegistration("d2");
         contract = contract.connect(p1);
-        await contract.bookAppointment(d1.address);
+        await contract.addAppointment(d1.address);
         contract = contract.connect(d1);
-        let patientList = await contract.getPatientList();
-        await contract.addNewLink(patientList[0]);
-        await contract.addNewLink(patientList[0]);
+        let patientList = await contract.getAppointedPatients();
+        await contract.addRecordNewLink(patientList[0],"Skin Disease","29-10-2023","Peanut allergy");
+        await contract.addRecordNewLink(patientList[0],"Skin Disease","29-10-2023","Peanut allergy");
         contract = contract.connect(d1);
-        await contract.addNewRecord(patientList[0],0,"Skin Disease","29-10-2023","Peanut allergy");
-        await contract.addNewRecord(patientList[0],1,"Pulmonary Disease","29-10-2023","Difficulty in breathing");
+        await contract.addRecordExistingLink(patientList[0],0,"Skin Disease","29-10-2023","Peanut allergy");
+        await contract.addRecordExistingLink(patientList[0],1,"Pulmonary Disease","29-10-2023","Difficulty in breathing");
         contract = contract.connect(p1);
-        await contract.markAsEmergencyRecord(0,0);
+        await contract.addEmergencyRecord(0,0);
         let{0: titleList, 1: dateList, 2:dataList} = await contract.getEmergencyRecords(p1.address);
         expect(titleList.length).to.be.equal(1);
         expect(titleList[0]).to.be.equal("Skin Disease");
@@ -209,21 +209,21 @@ describe("MediBlockv2", function() {
         contract = contract.connect(d2);
         await contract.doctorRegistration("d2");
         contract = contract.connect(p1);
-        await contract.bookAppointment(d1.address);
+        await contract.addAppointment(d1.address);
         contract = contract.connect(d1);
-        let patientList = await contract.getPatientList();
-        await contract.addNewLink(patientList[0]);
-        await contract.addNewLink(patientList[0]);
+        let patientList = await contract.getAppointedPatients();
+        await contract.addRecordNewLink(patientList[0],"Skin Disease","29-10-2023","Peanut allergy");
+        await contract.addRecordNewLink(patientList[0],"Skin Disease","29-10-2023","Peanut allergy");
         contract = contract.connect(d1);
-        await contract.addNewRecord(patientList[0],0,"Skin Disease","29-10-2023","Peanut allergy");
-        await contract.addNewRecord(patientList[0],1,"Pulmonary Disease","29-10-2023","Difficulty in breathing");
+        await contract.addRecordExistingLink(patientList[0],0,"Skin Disease","29-10-2023","Peanut allergy");
+        await contract.addRecordExistingLink(patientList[0],1,"Pulmonary Disease","29-10-2023","Difficulty in breathing");
         contract = contract.connect(p1);
-        await contract.markAsEmergencyRecord(0,0);
-        await contract.markAsEmergencyRecord(1,0);
+        await contract.addEmergencyRecord(0,0);
+        await contract.addEmergencyRecord(1,0);
         await contract.removeEmergencyRecord(0);
         let{0: titleList, 1: dateList, 2:dataList} = await contract.getEmergencyRecords(p1.address);
         expect(titleList.length).to.be.equal(1);
-        expect(titleList[0]).to.be.equal("Pulmonary Disease");
+        expect(titleList[0]).to.be.equal("Skin Disease");
       })
     })
   })
@@ -237,12 +237,12 @@ describe("MediBlockv2", function() {
         contract = contract.connect(d1);
         await contract.doctorRegistration("d1");
         contract = contract.connect(p1);
-        await contract.bookAppointment(d1.address);
+        await contract.addAppointment(d1.address);
         contract = contract.connect(d1);
-        let patientList = await contract.getPatientList();
-        await contract.addNewLink(patientList[0]);
+        let patientList = await contract.getAppointedPatients();
+        await contract.addRecordNewLink(patientList[0],"Skin Disease","29-10-2023","Peanut allergy");
         contract = contract.connect(p1);
-        let {0: titleList, 1: dateList, 2:indicesList} = await contract.getAllRecords();
+        let {0: titleList, 1: dateList, 2:indicesList} = await contract.getRecords();
         expect(indicesList.length).to.be.equal(1);
       })
 
@@ -252,20 +252,20 @@ describe("MediBlockv2", function() {
         contract = contract.connect(d1);
         await contract.doctorRegistration("d1");
         contract = contract.connect(p1);
-        await contract.bookAppointment(d1.address);
+        await contract.addAppointment(d1.address);
         contract = contract.connect(d1);
-        let patientList = await contract.getPatientList();
-        await contract.addNewLink(patientList[0]);
-        await contract.addNewLink(patientList[0]);
+        let patientList = await contract.getAppointedPatients();
+        await contract.addRecordNewLink(patientList[0],"Skin Disease","29-10-2023","Peanut allergy");
+        await contract.addRecordNewLink(patientList[0],"Skin Disease","29-10-2023","Peanut allergy");
         contract = contract.connect(p1);
-        let {0: ptitleList, 1: pdateList, 2: pindicesList} = await contract.getAllRecords();
+        let {0: ptitleList, 1: pdateList, 2: pindicesList} = await contract.getRecords();
         contract = contract.connect(d1);
-        await contract.addNewRecord(patientList[0],pindicesList[0],"Skin Disease","29-10-2023","Peanut allergy");
-        await contract.addNewRecord(patientList[0],pindicesList[1],"Pulmonary Disease","29-10-2023","Difficulty in breathing");
-        let {0: titleList, 1: dateList, 2: indicesList} = await contract.getAllRecordsWithAccess(p1.address);
+        await contract.addRecordExistingLink(patientList[0],pindicesList[0],"Skin Disease","29-10-2023","Peanut allergy");
+        await contract.addRecordExistingLink(patientList[0],pindicesList[1],"Pulmonary Disease","29-10-2023","Difficulty in breathing");
+        let {0: titleList, 1: dateList, 2: indicesList} = await contract.getRecordsWithAccess(p1.address);
         contract = contract.connect(p1);
-        let{0: titles, 1: dates, 2: indices} = await contract.getAllRecords();
-        expect(indices.length).to.be.equal(2);
+        let{0: titles, 1: dates, 2: indices} = await contract.getRecords();
+        expect(indices.length).to.be.equal(4);
       })
     })
 
@@ -279,7 +279,7 @@ describe("MediBlockv2", function() {
         await contract.patientRegistration("p3");
         contract = contract.connect(d1);
         await contract.doctorRegistration("d1");
-        let patientList = await contract.getAllPatientList();
+        let patientList = await contract.getPatients();
         expect(patientList.length).to.be.equal(3);
         expect(patientList[0]).to.be.equal(p1.address);
       })
@@ -289,14 +289,14 @@ describe("MediBlockv2", function() {
         await contract.doctorRegistration("d1");
         contract = contract.connect(p1);
         await contract.patientRegistration("p1");
-        await contract.bookAppointment(d1.address);
+        await contract.addAppointment(d1.address);
         contract = contract.connect(p2);
         await contract.patientRegistration("p2");
-        await contract.bookAppointment(d1.address);
+        await contract.addAppointment(d1.address);
         contract = contract.connect(p3);
         await contract.patientRegistration("p3");
         contract = contract.connect(d1);
-        let patientList = await contract.getPatientList();
+        let patientList = await contract.getAppointedPatients();
         expect(patientList.length).to.be.equal(2);
         expect(patientList[1]).to.be.equal(p2.address);
       })
