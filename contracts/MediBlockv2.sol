@@ -104,18 +104,16 @@ contract MediBlockv2 {
 
     /**
      * @notice to give access of a link of records to a doctor or pathologist
-     * @param _patient patient address
      * @param linkIndex the link index of the records
      * @param _addr doctor or pathologist address
      * @param _seconds access time in seconds
      */
     function giveAccess(
-        address _patient,
         uint linkIndex,
         address _addr,
         uint _seconds
-    ) public isPatient(_patient) isDoctorOrPathologist(_addr) {
-        IterableMappingPatient.Patient storage patient = patients.get(_patient);
+    ) public isPatient(msg.sender) isDoctorOrPathologist(_addr) {
+        IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
         uint accessIndex = patient.access[linkIndex].length;
         patient.access[linkIndex].push();
         patient.access[linkIndex][accessIndex].addr = _addr;
@@ -126,16 +124,14 @@ contract MediBlockv2 {
 
     /**
      * @notice to revoke access of a link of records to a doctor or pathologist
-     * @param _patient patient address
      * @param linkIndex the link index of the records
      * @param _addr doctor or pathologist address
      */
     function revokeAccess(
-        address _patient,
         uint linkIndex,
         address _addr
-    ) public isPatient(_patient) isDoctorOrPathologist(_addr) {
-        IterableMappingPatient.Patient storage patient = patients.get(_patient);
+    ) public isPatient(msg.sender) isDoctorOrPathologist(_addr) {
+        IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
         uint accessListLen = patient.access[linkIndex].length;
         for (uint i = 0; i < accessListLen; i++) {
             if (patient.access[linkIndex][i].addr == _addr) {
@@ -146,6 +142,19 @@ contract MediBlockv2 {
         }
     }
 
+    /**
+     * @param _addr doctor/pathologist address
+     * @param linkIndex link Index
+     * @return bool
+     */
+    function hasAccess(address _addr, uint linkIndex) public view isPatient(msg.sender) isDoctorOrPathologist(_addr)returns(bool){
+        IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
+        uint accessListLen = patient.access[linkIndex].length;
+        for(uint i = 0; i < accessListLen; i++){
+            if(patient.access[linkIndex][i].addr == _addr && patient.access[linkIndex][i].time > block.timestamp)   return true;
+        }
+        return false;
+    }
     /**
      * @notice to get information about a record
      * @param _patient patient address
@@ -438,7 +447,12 @@ contract MediBlockv2 {
         IterableMappingPatient.Patient storage patient = patients.get(_patient);
         uint linkIndex = patient.linkLength;
         patient.linkLength++;
-        giveAccess(_patient, linkIndex, msg.sender, 10000);
+        uint accessIndex = patient.access[linkIndex].length;
+        patient.access[linkIndex].push();
+        patient.access[linkIndex][accessIndex].addr = msg.sender;
+        uint accessTime = block.timestamp;
+        accessTime += 1000000000;
+        patient.access[linkIndex][accessIndex].time = accessTime;
         patient.records[linkIndex].push(IterableMappingPatient.Record(msg.sender, _title, _date, _data, false));
     }
 
@@ -474,7 +488,7 @@ contract MediBlockv2 {
      * @dev doctor address is provided by msg.sender
      * @param _patient patient address
      */
-    function removeAppointment(address _patient) public isDoctor(msg.sender) isPatient(_patient) {
+    function removeAppointment(address _patient) public isPatient(_patient) {
         IterableMappingDoctor.Doctor storage doctor = doctors.get(msg.sender);
         IterableMappingPatient.Patient storage patient = patients.get(_patient);
         uint len = doctor.appointments.length;
