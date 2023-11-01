@@ -312,7 +312,7 @@ contract MediBlockv2 {
     function getEmergencyRecords(
         address _patient
     ) public view isPatient(_patient) returns (string[] memory, string[] memory, uint[] memory, uint[] memory) {
-        IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
+        IterableMappingPatient.Patient storage patient = patients.get(_patient);
         uint len = 0;
         uint linkLength = patient.linkLength;
         for(uint i = 0; i < linkLength; i++){
