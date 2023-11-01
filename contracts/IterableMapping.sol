@@ -12,6 +12,7 @@ library IterableMappingPatient {
         string title;
         string date;
         string data;
+        bool isEmergency;
     }
 
     struct Patient {
@@ -19,7 +20,6 @@ library IterableMappingPatient {
         uint linkLength;
         mapping(uint => Access[]) access;
         mapping(uint => Record[]) records;
-        Record[] emergencyRecords;
         address[] appointedDoctors;
     }
 
