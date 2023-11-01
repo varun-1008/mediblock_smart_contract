@@ -11,12 +11,7 @@ error NotAPatient(address);
 error NotAPathologist(address);
 error NotADoctorOrPathologist(address);
 error NoWriteAccess(address patient, uint linkIndex, address writer);
-error NoReadAccess(
-    address patient,
-    uint linkIndex,
-    uint recordIndex,
-    address reader
-);
+error NoReadAccess(address patient, uint linkIndex, uint recordIndex, address reader);
 error IndexOutOfBound(uint linkIndex);
 
 contract MediBlockv2 {
@@ -51,49 +46,142 @@ contract MediBlockv2 {
         _;
     }
 
-  // ====================================================  unregistered   ============================================================
+    modifier isDoctorOrPathologist(address _address) {
+        if (role[_address] != Role.Pathologist && role[_address] != Role.Doctor)
+            revert NotADoctorOrPathologist(_address);
 
-    /*
-  Description : To register patients
-  can be called by user
-  arguments:  patient's info
-  */
+        _;
+    }
+
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖  Unregistered  ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
+
+    /**
+     * @notice to register a patient
+     * @dev the information should be an encrypted CID
+     * @param _info information about the patient
+     */
     function patientRegistration(string memory _info) public isUnregistered {
         role[msg.sender] = Role.Patient;
         patients.set(msg.sender, _info);
     }
 
-    /*
-  Description : To register doctors
-  can be called by user
-  arguments:  doctor info
-  */
+    /**
+     * @notice to register a doctor
+     * @dev the information should be an encrypted CID
+     * @param _info information about the doctor
+     */
     function doctorRegistration(string memory _info) public isUnregistered {
         role[msg.sender] = Role.Doctor;
         doctors.set(msg.sender, _info);
     }
 
-  // ====================================================  patient   ============================================================
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖  Anyone  ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
 
-    /*
-  Description : To access all records
-  can be called by patient
-  arguments:  null
-  return value: 3 string array, list of string of title, date and link Index of emergency records
-  */
+    /**
+     * @notice to get information about a patient
+     * @param _patient patient address
+     * @return info the patient information
+     */
+    function getPatientInfo(address _patient) public view isPatient(_patient) returns (string memory) {
+        IterableMappingPatient.Patient storage patient = patients.get(_patient);
+        return patient.info;
+    }
+
+    /**
+     * @notice to get information about the doctor
+     * @dev doctor information should be an encrypted CID
+     * @param _doctor doctor address
+     * @return info information about the doctor
+     */
+    function getDoctorInfo(address _doctor) public view isDoctor(_doctor) returns (string memory) {
+        IterableMappingDoctor.Doctor storage doctor = doctors.get(_doctor);
+        return doctor.info;
+    }
+
+    /**
+     * @notice to give access of a link of records to a doctor or pathologist
+     * @param _patient patient address
+     * @param linkIndex the link index of the records
+     * @param _addr doctor or pathologist address
+     * @param _seconds access time in seconds
+     */
+    function giveAccess(
+        address _patient,
+        uint linkIndex,
+        address _addr,
+        uint _seconds
+    ) public isPatient(_patient) isDoctorOrPathologist(_addr) {
+        IterableMappingPatient.Patient storage patient = patients.get(_patient);
+        uint accessIndex = patient.access[linkIndex].length;
+        patient.access[linkIndex].push();
+        patient.access[linkIndex][accessIndex].addr = _addr;
+        uint accessTime = block.timestamp;
+        accessTime += _seconds;
+        patient.access[linkIndex][accessIndex].time = accessTime;
+    }
+
+    /**
+     * @notice to revoke access of a link of records to a doctor or pathologist
+     * @param _patient patient address
+     * @param linkIndex the link index of the records
+     * @param _addr doctor or pathologist address
+     */
+    function revokeAccess(
+        address _patient,
+        uint linkIndex,
+        address _addr
+    ) public isPatient(_patient) isDoctorOrPathologist(_addr) {
+        IterableMappingPatient.Patient storage patient = patients.get(_patient);
+        uint accessListLen = patient.access[linkIndex].length;
+        for (uint i = 0; i < accessListLen; i++) {
+            if (patient.access[linkIndex][i].addr == _addr) {
+                patient.access[linkIndex][i] = patient.access[linkIndex][accessListLen - 1];
+                patient.access[linkIndex].pop();
+                break;
+            }
+        }
+    }
+
+    /**
+     * @notice to get information about a record
+     * @param _patient patient address
+     * @param linkIndex link index
+     * @param recordIndex record index
+     * @return title title of the record
+     * @return date time of the record
+     * @return data content of the record
+     */
+    function getRecord(address _patient, uint linkIndex, uint recordIndex) public view returns (string memory) {
+        IterableMappingPatient.Patient storage patient = patients.get(_patient);
+        return patient.records[linkIndex][recordIndex].data;
+    }
+
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖  Patient  ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
+
+    /**
+     * @notice to get the records of a patient
+     * @dev the patient address is provided by msg.sender
+     * @return recordTitles array
+     * @return recordDates array
+     * @return linkIndices array
+     * @return recordIndices array
+     */
     function getRecords()
         public
         view
         isPatient(msg.sender)
         returns (string[] memory, string[] memory, uint[] memory, uint[] memory)
     {
-        IterableMappingPatient.Patient storage patient = patients.get(
-            msg.sender
-        );
+        IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
         uint linkLength = patient.linkLength;
         uint totalRecords = 0;
-        for (uint i = 0; i < linkLength; i++)
-            totalRecords += patient.records[i].length;
+        for (uint i = 0; i < linkLength; i++) totalRecords += patient.records[i].length;
         string[] memory recordTitles = new string[](totalRecords);
         string[] memory recordDates = new string[](totalRecords);
         uint[] memory linkIndices = new uint[](totalRecords);
@@ -109,26 +197,157 @@ contract MediBlockv2 {
                 counter++;
             }
         }
-        //"p1","p2","-","p3","p4","-"
         return (recordTitles, recordDates, linkIndices, recordIndices);
     }
 
-  // ====================================================  doctor   ============================================================
+    /**
+     * @notice get list of not appointed doctors
+     * @dev patient address is provided by msg.sender
+     * @return address array of doctors
+     */
+    function getNotAppointedDoctors() public view isPatient(msg.sender) returns (address[] memory) {
+        uint len = doctors.size();
+        IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
+        uint patientAppointmentList = patient.appointedDoctors.length;
+        uint totalDoctors = 0;
+        for (uint i = 0; i < len; i++) {
+            address addr = doctors.getKeyAtIndex(i);
+            bool flag = true;
+            for (uint j = 0; j < patientAppointmentList; j++) {
+                if (patient.appointedDoctors[j] == addr) {
+                    flag = false;
+                    break;
+                }
+            }
+            if (flag) totalDoctors++;
+        }
+        address[] memory addressList = new address[](totalDoctors);
+        uint counter = 0;
+        for (uint i = 0; i < len; i++) {
+            address addr = doctors.getKeyAtIndex(i);
+            bool flag = true;
+            for (uint j = 0; j < patientAppointmentList; j++) {
+                if (patient.appointedDoctors[j] == addr) {
+                    flag = false;
+                    break;
+                }
+            }
+            if (flag) {
+                addressList[counter] = addr;
+                counter++;
+            }
+        }
+        return addressList;
+    }
 
-  /*
-  Description : To access records by doctors
-  can be called by doctors
-  arguments:  patient address
-  return value: 3 string array, list of string of title, date and link index of emergency records
-  */
-  function getRecordsWithAccess(
+    /**
+     * @notice get list of appointed doctors
+     * @dev patient address is provided by msg.sender
+     * @return address array of doctors
+     */
+    function getAppointedDoctors() public view isPatient(msg.sender) returns (address[] memory) {
+        IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
+        uint len = patient.appointedDoctors.length;
+        address[] memory appointedDoctorList = new address[](len);
+        for (uint i = 0; i < len; i++) {
+            appointedDoctorList[i] = patient.appointedDoctors[i];
+            // console.log(getDoctorInfo(appointedDoctorList[i]));
+        }
+        return appointedDoctorList;
+    }
+
+    /**
+     * @notice to book a doctor appointment
+     * @dev patient address is provided by msg.sender
+     * @param _doctor doctor address
+     */
+    function addAppointment(address _doctor) public isPatient(msg.sender) isDoctor(_doctor) {
+        IterableMappingDoctor.Doctor storage doctor = doctors.get(_doctor);
+        IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
+        patient.appointedDoctors.push(_doctor);
+        doctor.appointments.push(msg.sender);
+    }
+
+    // IsEmergencyRecord()
+
+    /**
+     * @notice to mark a record as an emergency record
+     * @param linkIndex link index of the record
+     * @param recordIndex record index of the record
+     */
+    function addEmergencyRecord(uint linkIndex, uint recordIndex) public isPatient(msg.sender) {
+        IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
+        uint index = patient.emergencyRecords.length;
+        patient.emergencyRecords.push();
+        patient.emergencyRecords[index] = patient.records[linkIndex][recordIndex];
+    }
+
+    /**
+     * @notice to mark a record as not an emergency record
+     * @param index
+     */
+    function removeEmergencyRecord(uint index) public isPatient(msg.sender) {
+        IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
+        uint len = patient.emergencyRecords.length;
+        patient.emergencyRecords[index] = patient.emergencyRecords[len - 1];
+        patient.emergencyRecords.pop();
+        len = patient.emergencyRecords.length;
+    }
+
+    /**
+     * @notice get all emergency records of a patient
+     * @param _patient patient address
+     * @return titleList array
+     * @return dateList array
+     * @return dataList array
+     */
+    function getEmergencyRecords(
         address _patient
-    )
-        public
-        view
-        isDoctor(msg.sender)
-        returns (string[] memory, string[] memory, uint[] memory, uint[] memory)
-    {
+    ) public view isPatient(_patient) returns (string[] memory, string[] memory, string[] memory) {
+        IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
+        uint len = patient.emergencyRecords.length;
+        string[] memory titleList = new string[](len);
+        string[] memory dateList = new string[](len);
+        string[] memory dataList = new string[](len);
+        for (uint i = 0; i < len; i++) {
+            titleList[i] = patient.emergencyRecords[i].title;
+            dateList[i] = patient.emergencyRecords[i].date;
+            dataList[i] = patient.emergencyRecords[i].data;
+        }
+        return (titleList, dateList, dataList);
+    }
+
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖  Doctor  ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
+
+    /**
+     * @notice list of patient who have active appointment
+     * @dev doctor address is provided by msg.sender
+     * @return address array of patients
+     */
+    function getAppointedPatients() public view isDoctor(msg.sender) returns (address[] memory) {
+        IterableMappingDoctor.Doctor storage doctor = doctors.get(msg.sender);
+        uint totalPatients = doctor.appointments.length;
+        address[] memory patientList = new address[](totalPatients);
+        for (uint i = 0; i < totalPatients; i++) {
+            patientList[i] = doctor.appointments[i];
+        }
+        return patientList;
+    }
+
+    /**
+     * @notice to get the records of a patient the doctor has access
+     * @dev the doctor address is provided by msg.sender
+     * @param _patient patient address
+     * @return recordTitles array
+     * @return recordDates array
+     * @return linkIndices array
+     * @return recordIndices array
+     */
+    function getRecordsWithAccess(
+        address _patient
+    ) public view isDoctor(msg.sender) returns (string[] memory, string[] memory, uint[] memory, uint[] memory) {
         // updateAcessList(_patient);
         IterableMappingPatient.Patient storage patient = patients.get(_patient);
         uint linkLength = patient.linkLength;
@@ -179,11 +398,36 @@ contract MediBlockv2 {
         return (recordTitles, recordDates, linkIndices, recordIndices);
     }
 
-    /*
-  Description : Add new records to existing link
-  can be called by doctors
-  arguments:  patient address, linkIndex, record data
-  */
+    /**
+     * @notice to add a record to a new link
+     * @dev doctor address is provided by msg.sender, _data should be provided as an encrypted string
+     * @param _patient patient address
+     * @param _title the title of the record
+     * @param _date current time
+     * @param _data the content of the record
+     */
+    function addRecordNewLink(
+        address _patient,
+        string memory _title,
+        string memory _date,
+        string memory _data
+    ) public isPatient(_patient) isDoctor(msg.sender) {
+        IterableMappingPatient.Patient storage patient = patients.get(_patient);
+        uint linkIndex = patient.linkLength;
+        patient.linkLength++;
+        giveAccess(_patient, linkIndex, msg.sender, 10000);
+        patient.records[linkIndex].push(IterableMappingPatient.Record(msg.sender, _title, _date, _data));
+    }
+
+    /**
+     * @notice to add a record at a existing link
+     * @dev doctor address is provided by msg.sender, _data should be provided as an encrypted string
+     * @param _patient patient address
+     * @param linkIndex the link index
+     * @param _title the title of the record
+     * @param _date current time
+     * @param _data the content of the record
+     */
     function addRecordExistingLink(
         address _patient,
         uint linkIndex,
@@ -202,76 +446,53 @@ contract MediBlockv2 {
         // console.log(patient.records[linkIndex].length);
     }
 
-    /*
-  Description : Creating new link
-  can be called by doctors
-  arguments:  patient address
-  */
-    function addRecordNewLink(
-        address _patient,
-        string memory _title,
-        string memory _date,
-        string memory _data
-    ) public isPatient(_patient) isDoctor(msg.sender) {
+    /**
+     * @notice to remove a doctor appointment
+     * @dev doctor address is provided by msg.sender
+     * @param _patient patient address
+     */
+    function removeAppointment(address _patient) public isDoctor(msg.sender) isPatient(_patient) {
+        IterableMappingDoctor.Doctor storage doctor = doctors.get(msg.sender);
         IterableMappingPatient.Patient storage patient = patients.get(_patient);
-        uint linkIndex = patient.linkLength;
-        patient.linkLength++;
-        giveAccess(_patient, linkIndex, msg.sender, 10000);
-        patient.records[linkIndex].push(
-            IterableMappingPatient.Record(msg.sender, _title, _date, _data)
-        );
-    }
-
-    /*
-  Description : To give access
-  called internally or by patient
-  arguments:  patient address, linkIndex
-  */
-    function giveAccess(
-        address _patient,
-        uint linkIndex,
-        address _addr,
-        uint _seconds
-    ) public isPatient(_patient) {
-        IterableMappingPatient.Patient storage patient = patients.get(_patient);
-        uint accessIndex = patient.access[linkIndex].length;
-        patient.access[linkIndex].push();
-        patient.access[linkIndex][accessIndex].addr = _addr;
-        uint accessTime = block.timestamp;
-        accessTime += _seconds;
-        patient.access[linkIndex][accessIndex].time = accessTime;
-        // console.log("Access List Length: ");
-        // console.log(patient.access[linkIndex].length);
-    }
-
-    /*
-  Description : Revoke access
-  called patient
-  arguments:  patient address, linkIndex
-  */
-    function revokeAccess(
-        address _patient,
-        uint linkIndex,
-        address _addr
-    ) public isPatient(_patient) {
-        IterableMappingPatient.Patient storage patient = patients.get(_patient);
-        uint accessListLen = patient.access[linkIndex].length;
-        for (uint i = 0; i < accessListLen; i++) {
-            if (patient.access[linkIndex][i].addr == _addr) {
-                patient.access[linkIndex][i] = patient.access[linkIndex][
-                    accessListLen - 1
-                ];
-                patient.access[linkIndex].pop();
+        uint len = doctor.appointments.length;
+        for (uint i = 0; i < len; i++) {
+            if (doctor.appointments[i] == _patient) {
+                doctor.appointments[i] = doctor.appointments[len - 1];
+                doctor.appointments.pop();
+                break;
+            }
+        }
+        len = patient.appointedDoctors.length;
+        for (uint i = 0; i < len; i++) {
+            if (patient.appointedDoctors[i] == msg.sender) {
+                patient.appointedDoctors[i] = patient.appointedDoctors[len - 1];
+                patient.appointedDoctors.pop();
                 break;
             }
         }
     }
 
-    /*
-  Description : Update accesslist
-  called system internally
-  arguments:  patient address, linkIndex
-  */
+    /**
+     * @notice list of all patients
+     * @return address array of patients
+     */
+    function getPatients() public view isDoctor(msg.sender) returns (address[] memory) {
+        uint len = patients.size();
+        address[] memory addressList = new address[](len);
+        for (uint i = 0; i < len; i++) {
+            addressList[i] = patients.getKeyAtIndex(i);
+        }
+        return addressList;
+    }
+
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖  Internal  ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
+
+    /**
+     * @notice to update the access list
+     * @param _patient patient address
+     */
     function updateAcessList(address _patient) internal isPatient(_patient) {
         IterableMappingPatient.Patient storage patient = patients.get(_patient);
         uint linkLength = patient.linkLength;
@@ -295,267 +516,5 @@ contract MediBlockv2 {
             }
         }
     }
-
-    /*
-  Description : Get patient Info
-  can be called by anyone
-  arguments:  patient address
-  return value: string, patient info
-  */
-    function getPatientInfo(
-        address _patient
-    ) public view isPatient(_patient) returns (string memory) {
-        IterableMappingPatient.Patient storage patient = patients.get(_patient);
-        return patient.info;
-    }
-
-    /*
-  Description : To mark record as emergency records
-  can be called by patient
-  arguments:  linkIndex, recordIndex
-  */
-    function addEmergencyRecord(
-        uint linkIndex,
-        uint recordIndex
-    ) public isPatient(msg.sender) {
-        IterableMappingPatient.Patient storage patient = patients.get(
-            msg.sender
-        );
-        uint index = patient.emergencyRecords.length;
-        patient.emergencyRecords.push();
-        patient.emergencyRecords[index] = patient.records[linkIndex][
-            recordIndex
-        ];
-    }
-
-    /*
-  Description : To remove record from emergency records
-  can be called by patient
-  arguments:  Emeregency record index
-  */
-    function removeEmergencyRecord(uint index) public isPatient(msg.sender) {
-        IterableMappingPatient.Patient storage patient = patients.get(
-            msg.sender
-        );
-        uint len = patient.emergencyRecords.length;
-        patient.emergencyRecords[index] = patient.emergencyRecords[len - 1];
-        patient.emergencyRecords.pop();
-        len = patient.emergencyRecords.length;
-    }
-
-    /*
-  Description : Get all emergency records related to a patient
-  can be called by patient
-  arguments:  patient address
-  return value: 3 string array, list of string of title, date and data of emergency records
-  */
-    function getEmergencyRecords(
-        address _patient
-    )
-        public
-        view
-        isPatient(_patient)
-        returns (string[] memory, string[] memory, string[] memory)
-    {
-        IterableMappingPatient.Patient storage patient = patients.get(
-            msg.sender
-        );
-        uint len = patient.emergencyRecords.length;
-        string[] memory titleList = new string[](len);
-        string[] memory dateList = new string[](len);
-        string[] memory dataList = new string[](len);
-        for (uint i = 0; i < len; i++) {
-            titleList[i] = patient.emergencyRecords[i].title;
-            dateList[i] = patient.emergencyRecords[i].date;
-            dataList[i] = patient.emergencyRecords[i].data;
-        }
-        return (titleList, dateList, dataList);
-    }
-
-    /*
-  Description : To book appointment of doctors
-  can be called by patient
-  arguments:  doctor address
-  */
-    function addAppointment(
-        address _doctor
-    ) public isPatient(msg.sender) isDoctor(_doctor) {
-        IterableMappingDoctor.Doctor storage doctor = doctors.get(_doctor);
-        IterableMappingPatient.Patient storage patient = patients.get(
-            msg.sender
-        );
-        patient.appointedDoctors.push(_doctor);
-        doctor.appointments.push(msg.sender);
-    }
-
-    /*
-  Description : To delete appointment of doctors
-  can be called by patient
-  arguments:  doctor address
-  */
-    function removeAppointment(
-        address _doctor
-    ) public isPatient(msg.sender) isDoctor(_doctor) {
-        IterableMappingDoctor.Doctor storage doctor = doctors.get(_doctor);
-        IterableMappingPatient.Patient storage patient = patients.get(
-            msg.sender
-        );
-        uint len = doctor.appointments.length;
-        for (uint i = 0; i < len; i++) {
-            if (doctor.appointments[i] == msg.sender) {
-                doctor.appointments[i] = doctor.appointments[len - 1];
-                doctor.appointments.pop();
-                break;
-            }
-        }
-        len = patient.appointedDoctors.length;
-        for (uint i = 0; i < len; i++) {
-            if (patient.appointedDoctors[i] == _doctor) {
-                patient.appointedDoctors[i] = patient.appointedDoctors[len - 1];
-                patient.appointedDoctors.pop();
-                break;
-            }
-        }
-    }
-
-    /*
-  Description : Get all list of doctors who are not appointed to a patient (for Booking of appointment)
-  can be called by patients
-  arguments:  null
-  return value: string array, list of addresses of all not appointed doctors
-  */
-    function getNotAppointedDoctors()
-        public
-        view
-        isPatient(msg.sender)
-        returns (address[] memory)
-    {
-        uint len = doctors.size();
-        IterableMappingPatient.Patient storage patient = patients.get(
-            msg.sender
-        );
-        uint patientAppointmentList = patient.appointedDoctors.length;
-        uint totalDoctors = 0;
-        for (uint i = 0; i < len; i++) {
-            address addr = doctors.getKeyAtIndex(i);
-            bool flag = true;
-            for (uint j = 0; j < patientAppointmentList; j++) {
-                if (patient.appointedDoctors[j] == addr) {
-                    flag = false;
-                    break;
-                }
-            }
-            if (flag) totalDoctors++;
-        }
-        address[] memory addressList = new address[](totalDoctors);
-        uint counter = 0;
-        for (uint i = 0; i < len; i++) {
-            address addr = doctors.getKeyAtIndex(i);
-            bool flag = true;
-            for (uint j = 0; j < patientAppointmentList; j++) {
-                if (patient.appointedDoctors[j] == addr) {
-                    flag = false;
-                    break;
-                }
-            }
-            if (flag) {
-                addressList[counter] = addr;
-                counter++;
-            }
-        }
-        return addressList;
-    }
-
-    /*
-  Description : Get list of appointed doctors
-  can be called by patients
-  arguments:  null
-  return value: string array, list of addresses of appointed doctors
-  */
-    function getAppointedDoctors()
-        public
-        view
-        isPatient(msg.sender)
-        returns (address[] memory)
-    {
-        IterableMappingPatient.Patient storage patient = patients.get(
-            msg.sender
-        );
-        uint len = patient.appointedDoctors.length;
-        address[] memory appointedDoctorList = new address[](len);
-        for (uint i = 0; i < len; i++) {
-            appointedDoctorList[i] = patient.appointedDoctors[i];
-            // console.log(getDoctorInfo(appointedDoctorList[i]));
-        }
-        return appointedDoctorList;
-    }
-
-    /*
-  Description : Get information related to doctor
-  can be called by doctors
-  arguments:  doctor address
-  return value: string, doctor info
-  */
-    function getDoctorInfo(
-        address _doctor
-    ) public view isDoctor(_doctor) returns (string memory) {
-        IterableMappingDoctor.Doctor storage doctor = doctors.get(_doctor);
-        return doctor.info;
-    }
-
-    /*
-  Description : Get list of patients who appointed the doctor
-  can be called by doctors
-  arguments:  null
-  return value: list of addresses of appointed patients
-  */
-    function getAppointedPatients()
-        public
-        view
-        isDoctor(msg.sender)
-        returns (address[] memory)
-    {
-        IterableMappingDoctor.Doctor storage doctor = doctors.get(msg.sender);
-        uint totalPatients = doctor.appointments.length;
-        address[] memory patientList = new address[](totalPatients);
-        for (uint i = 0; i < totalPatients; i++) {
-            patientList[i] = doctor.appointments[i];
-        }
-        return patientList;
-    }
-
-    /*
-  Description : Get all list of patients (for Emergency Records)
-  can be called by doctors
-  arguments:  null
-  return value: string array, list of addresses of all patients
-  */
-    function getPatients()
-        public
-        view
-        isDoctor(msg.sender)
-        returns (address[] memory)
-    {
-        uint len = patients.size();
-        address[] memory addressList = new address[](len);
-        for (uint i = 0; i < len; i++) {
-            addressList[i] = patients.getKeyAtIndex(i);
-        }
-        return addressList;
-    }
-
-    /*
-  Description : get record data
-  called internally or by patient
-  arguments:  patient address, linkIndex, record index
-  return vale: string, record data
-  */
-    function getRecord(
-        address _patient,
-        uint linkIndex,
-        uint recordIndex
-    ) public view returns (string memory) {
-        IterableMappingPatient.Patient storage patient = patients.get(_patient);
-        return patient.records[linkIndex][recordIndex].data;
-    }
+    
 }
