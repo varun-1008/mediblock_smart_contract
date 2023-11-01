@@ -155,9 +155,12 @@ contract MediBlockv2 {
      * @return date time of the record
      * @return data content of the record
      */
-    function getRecord(address _patient, uint linkIndex, uint recordIndex) public view returns (string memory) {
+    function getRecord(address _patient, uint linkIndex, uint recordIndex) public view returns (string memory,string memory, string memory) {
         IterableMappingPatient.Patient storage patient = patients.get(_patient);
-        return patient.records[linkIndex][recordIndex].data;
+        string memory _title = patient.records[linkIndex][recordIndex].title;
+        string memory _date = patient.records[linkIndex][recordIndex].date;
+        string memory _data = patient.records[linkIndex][recordIndex].data;
+        return (_title, _date, _data);
     }
 
     // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
@@ -268,7 +271,16 @@ contract MediBlockv2 {
         doctor.appointments.push(msg.sender);
     }
 
-    // IsEmergencyRecord()
+    /**
+     * @notice to check whether a record is emergency record or not
+     * @param linkIndex link index
+     * @param recordIndex record index
+     * @return flag
+     */
+    function isEmergencyRecord(uint linkIndex,uint recordIndex) public view isPatient(msg.sender) returns(bool){
+        IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
+        return patient.records[linkIndex][recordIndex].isEmergency;
+    }
 
     /**
      * @notice to mark a record as an emergency record
@@ -277,21 +289,17 @@ contract MediBlockv2 {
      */
     function addEmergencyRecord(uint linkIndex, uint recordIndex) public isPatient(msg.sender) {
         IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
-        uint index = patient.emergencyRecords.length;
-        patient.emergencyRecords.push();
-        patient.emergencyRecords[index] = patient.records[linkIndex][recordIndex];
+        patient.records[linkIndex][recordIndex].isEmergency = true;
     }
 
     /**
      * @notice to mark a record as not an emergency record
-     * @param index
+     * @param linkIndex index of link
+     * @param recordIndex index of record
      */
-    function removeEmergencyRecord(uint index) public isPatient(msg.sender) {
+    function removeEmergencyRecord(uint linkIndex,uint recordIndex) public isPatient(msg.sender) {
         IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
-        uint len = patient.emergencyRecords.length;
-        patient.emergencyRecords[index] = patient.emergencyRecords[len - 1];
-        patient.emergencyRecords.pop();
-        len = patient.emergencyRecords.length;
+        patient.records[linkIndex][recordIndex].isEmergency = false;
     }
 
     /**
@@ -305,14 +313,29 @@ contract MediBlockv2 {
         address _patient
     ) public view isPatient(_patient) returns (string[] memory, string[] memory, string[] memory) {
         IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
-        uint len = patient.emergencyRecords.length;
+        uint len = 0;
+        uint linkLength = patient.linkLength;
+        for(uint i = 0; i < linkLength; i++){
+            uint recordLen = patient.records[i].length;
+            for(uint j = 0; j < recordLen; j++){
+                if(patient.records[i][j].isEmergency)   len++;
+            }
+        }
         string[] memory titleList = new string[](len);
         string[] memory dateList = new string[](len);
         string[] memory dataList = new string[](len);
-        for (uint i = 0; i < len; i++) {
-            titleList[i] = patient.emergencyRecords[i].title;
-            dateList[i] = patient.emergencyRecords[i].date;
-            dataList[i] = patient.emergencyRecords[i].data;
+        uint counter = 0;
+        for(uint i = 0; i < linkLength; i++){
+            uint recordLen = patient.records[i].length;
+            for(uint j = 0; j < recordLen; j++){
+                if(patient.records[i][j].isEmergency){
+                    titleList[counter] = patient.records[i][j].title;
+                    dateList[counter] = patient.records[i][j].date;
+                    dataList[counter] = patient.records[i][j].data;
+                    counter++;
+
+                }
+            }
         }
         return (titleList, dateList, dataList);
     }
@@ -416,7 +439,7 @@ contract MediBlockv2 {
         uint linkIndex = patient.linkLength;
         patient.linkLength++;
         giveAccess(_patient, linkIndex, msg.sender, 10000);
-        patient.records[linkIndex].push(IterableMappingPatient.Record(msg.sender, _title, _date, _data));
+        patient.records[linkIndex].push(IterableMappingPatient.Record(msg.sender, _title, _date, _data, false));
     }
 
     /**
@@ -485,7 +508,7 @@ contract MediBlockv2 {
         return addressList;
     }
 
-    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
+    // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
     // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖  Internal  ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
     // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
 
