@@ -306,12 +306,12 @@ contract MediBlockv2 {
      * @notice get all emergency records of a patient
      * @param _patient patient address
      * @return titleList array
-     * @return dateList array
-     * @return dataList array
+     * @return linkIndices array
+     * @return recordIndices array
      */
     function getEmergencyRecords(
         address _patient
-    ) public view isPatient(_patient) returns (string[] memory, string[] memory, string[] memory) {
+    ) public view isPatient(_patient) returns (string[] memory, string[] memory, uint[] memory, uint[] memory) {
         IterableMappingPatient.Patient storage patient = patients.get(msg.sender);
         uint len = 0;
         uint linkLength = patient.linkLength;
@@ -323,7 +323,8 @@ contract MediBlockv2 {
         }
         string[] memory titleList = new string[](len);
         string[] memory dateList = new string[](len);
-        string[] memory dataList = new string[](len);
+        uint[] memory linkIndices = new uint[](len);
+        uint[] memory recordIndices = new uint[](len);
         uint counter = 0;
         for(uint i = 0; i < linkLength; i++){
             uint recordLen = patient.records[i].length;
@@ -331,13 +332,13 @@ contract MediBlockv2 {
                 if(patient.records[i][j].isEmergency){
                     titleList[counter] = patient.records[i][j].title;
                     dateList[counter] = patient.records[i][j].date;
-                    dataList[counter] = patient.records[i][j].data;
+                    linkIndices[counter] = i;
+                    recordIndices[counter] = j;
                     counter++;
-
                 }
             }
         }
-        return (titleList, dateList, dataList);
+        return (titleList, dateList, linkIndices, recordIndices);
     }
 
     // ➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖
